@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>КТ №5 — Audio/Video/Canvas/Image</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;max-width:1050px;margin:18px auto;padding:0 12px}
+    .box{border:1px solid #ddd;border-radius:10px;padding:12px;margin:12px 0}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+    button,input{padding:8px 10px}
+    input[type="range"]{padding:0}
+    canvas{border:1px solid #ddd;border-radius:8px;max-width:100%}
+    .muted{color:#666;font-size:12px}
+    label{font-size:13px}
+  </style>
+</head>
+<body>
+  <h3>КТ №5. Аудио/видео + Canvas + изображения</h3>
+
+  <div class="box">
+    <h4 style="margin:0 0 8px">1) Аудио</h4>
+    <div class="row">
+      <input type="file" id="audioFile" accept="audio/*" />
+      <button onclick="aPlay()">Play</button>
+      <button onclick="aPause()">Pause</button>
+      <button onclick="aStop()">Stop</button>
+      <button onclick="aMute()">Mute</button>
+      <label>Громкость <input type="range" id="aVol" min="0" max="1" step="0.01" value="0.8" /></label>
+      <label style="min-width:260px">Позиция <input type="range" id="aSeek" min="0" max="100" step="0.1" value="0" style="width:240px" /></label>
+      <span class="muted" id="aTime">0:00 / 0:00</span>
+    </div>
+    <audio id="audio"></audio>
+    <div class="muted">Выбери аудиофайл и управляй кнопками/ползунками.</div>
+  </div>
+
+  <div class="box">
+    <h4 style="margin:0 0 8px">2) Видео</h4>
+    <div class="row">
+      <input type="file" id="videoFile" accept="video/*" />
+      <button onclick="vPlay()">Play</button>
+      <button onclick="vPause()">Pause</button>
+      <button onclick="vStop()">Stop</button>
+      <button onclick="vMute()">Mute</button>
+      <label>Громкость <input type="range" id="vVol" min="0" max="1" step="0.01" value="0.8" /></label>
+      <label style="min-width:260px">Позиция <input type="range" id="vSeek" min="0" max="100" step="0.1" value="0" style="width:240px" /></label>
+      <label>Скорость <input type="range" id="vRate" min="0.5" max="2" step="0.1" value="1" /></label>
+      <span class="muted" id="vTime">0:00 / 0:00</span>
+    </div>
+    <video id="video" width="720" style="max-width:100%;border-radius:10px;border:1px solid #ddd;background:#000"></video>
+    <div class="muted">Выбери видеофайл и управляй воспроизведением.</div>
+  </div>
+
+  <div class="box">
+    <h4 style="margin:0 0 8px">3) Canvas графика + анимация</h4>
+    <div class="row">
+      <button onclick="toggleAnim()" id="animBtn">Pause</button>
+      <label>Скорость <input type="range" id="speed" min="0.5" max="8" step="0.1" value="3" /></label>
+      <label>Размер <input type="range" id="radius" min="6" max="60" step="1" value="18" /></label>
+    </div>
+    <canvas id="animCanvas" width="900" height="260"></canvas>
+    <div class="muted">Анимация идёт через requestAnimationFrame; ползунки меняют параметры в реальном времени.</div>
+  </div>
+
+  <div class="box">
+    <h4 style="margin:0 0 8px">4) Работа с изображениями (upload + resize/crop + фильтры + скачать)</h4>
+    <div class="row">
+      <input type="file" id="imgFile" accept="image/*" />
+      <button onclick="resetImg()">Reset</button>
+      <button onclick="downloadPng()">Скачать PNG</button>
+    </div>
+
+    <div class="row">
+      <label>Scale % <input type="range" id="scale" min="10" max="200" step="1" value="100" /></label>
+      <label>Crop X <input type="range" id="cropX" min="0" max="0" step="1" value="0" /></label>
+      <label>Crop Y <input type="range" id="cropY" min="0" max="0" step="1" value="0" /></label>
+      <label>Crop W <input type="range" id="cropW" min="10" max="10" step="1" value="10" /></label>
+      <label>Crop H <input type="range" id="cropH" min="10" max="10" step="1" value="10" /></label>
+    </div>
+
+    <div class="row">
+      <label><input type="checkbox" id="gray" /> grayscale</label>
+      <label><input type="checkbox" id="sepia" /> sepia</label>
+      <label>Blur <input type="range" id="blur" min="0" max="10" step="0.5" value="0" /></label>
+      <label>Brightness <input type="range" id="bright" min="50" max="150" step="1" value="100" /></label>
+      <label>Contrast <input type="range" id="contrast" min="50" max="150" step="1" value="100" /></label>
+    </div>
+
+    <canvas id="imgCanvas" width="900" height="420"></canvas>
+    <div class="muted">Загрузи картинку → регулируй crop/scale/фильтры → скачай результат.</div>
+  </div>
+
+  <script>
+    const audio = document.getElementById("audio");
+    const video = document.getElementById("video");
+
+    const audioFile = document.getElementById("audioFile");
+    const videoFile = document.getElementById("videoFile");
+
+    const aVol = document.getElementById("aVol");
+    const vVol = document.getElementById("vVol");
+    const aSeek = document.getElementById("aSeek");
+    const vSeek = document.getElementById("vSeek");
+    const vRate = document.getElementById("vRate");
+
+    const aTime = document.getElementById("aTime");
+    const vTime = document.getElementById("vTime");
+
+    let aUrl = null, vUrl = null;
+
+    audioFile.addEventListener("change", () => {
+      if (aUrl) URL.revokeObjectURL(aUrl);
+      const f = audioFile.files?.[0];
+      if (!f) return;
+      aUrl = URL.createObjectURL(f);
+      audio.src = aUrl;
+      audio.load();
+    });
+
+    videoFile.addEventListener("change", () => {
+      if (vUrl) URL.revokeObjectURL(vUrl);
+      const f = videoFile.files?.[0];
+      if (!f) return;
+      vUrl = URL.createObjectURL(f);
+      video.src = vUrl;
+      video.load();
+    });
+
+    function fmt(t){
+      if (!isFinite(t)) return "0:00";
+      const m = Math.floor(t/60);
+      const s = Math.floor(t%60);
+      return `${m}:${String(s).padStart(2,"0")}`;
+    }
+
+    aVol.addEventListener("input", () => audio.volume = Number(aVol.value));
+    vVol.addEventListener("input", () => video.volume = Number(vVol.value));
+    vRate.addEventListener("input", () => video.playbackRate = Number(vRate.value));
+
+    function syncSeek(media, slider, label){
+      const d = media.duration || 0;
+      const t = media.currentTime || 0;
+      if (d > 0) slider.value = (t/d) * 100;
+      label.textContent = `${fmt(t)} / ${fmt(d)}`;
+    }
+
+    audio.addEventListener("timeupdate", () => syncSeek(audio, aSeek, aTime));
+    video.addEventListener("timeupdate", () => syncSeek(video, vSeek, vTime));
+    audio.addEventListener("loadedmetadata", () => syncSeek(audio, aSeek, aTime));
+    video.addEventListener("loadedmetadata", () => syncSeek(video, vSeek, vTime));
+
+    aSeek.addEventListener("input", () => {
+      const d = audio.duration || 0;
+      if (d > 0) audio.currentTime = (Number(aSeek.value)/100) * d;
+    });
+
+    vSeek.addEventListener("input", () => {
+      const d = video.duration || 0;
+      if (d > 0) video.currentTime = (Number(vSeek.value)/100) * d;
+    });
+
+    function aPlay(){ audio.play(); }
+    function aPause(){ audio.pause(); }
+    function aStop(){ audio.pause(); audio.currentTime = 0; }
+    function aMute(){ audio.muted = !audio.muted; }
+
+    function vPlay(){ video.play(); }
+    function vPause(){ video.pause(); }
+    function vStop(){ video.pause(); video.currentTime = 0; }
+    function vMute(){ video.muted = !video.muted; }
+
+    const animCanvas = document.getElementById("animCanvas");
+    const actx = animCanvas.getContext("2d");
+
+    const speed = document.getElementById("speed");
+    const radius = document.getElementById("radius");
+    const animBtn = document.getElementById("animBtn");
+
+    let running = true;
+    let x = 60, y = 60, vx = 3, vy = 2.3;
+
+    function toggleAnim(){
+      running = !running;
+      animBtn.textContent = running ? "Pause" : "Resume";
+      if (running) requestAnimationFrame(loop);
+    }
+
+    function loop(){
+      if (!running) return;
+
+      const r = Number(radius.value);
+      const sp = Number(speed.value);
+
+      vx = Math.sign(vx || 1) * sp;
+      vy = Math.sign(vy || 1) * (sp * 0.8);
+
+      x += vx;
+      y += vy;
+
+      if (x - r < 0) { x = r; vx *= -1; }
+      if (x + r > animCanvas.width) { x = animCanvas.width - r; vx *= -1; }
+      if (y - r < 0) { y = r; vy *= -1; }
+      if (y + r > animCanvas.height) { y = animCanvas.height - r; vy *= -1; }
+
+      actx.clearRect(0,0,animCanvas.width,animCanvas.height);
+      actx.fillRect(0,0,animCanvas.width,animCanvas.height);
+
+      actx.save();
+      actx.globalCompositeOperation = "source-over";
+      actx.fillStyle = "#fff";
+      actx.font = "14px system-ui";
+      actx.fillText("Canvas animation (requestAnimationFrame)", 10, 20);
+      actx.restore();
+
+      actx.beginPath();
+      actx.arc(x,y,r,0,Math.PI*2);
+      actx.fillStyle = "#2b7";
+      actx.fill();
+
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    const imgFile = document.getElementById("imgFile");
+    const imgCanvas = document.getElementById("imgCanvas");
+    const ictx = imgCanvas.getContext("2d");
+
+    const scale = document.getElementById("scale");
+    const cropX = document.getElementById("cropX");
+    const cropY = document.getElementById("cropY");
+    const cropW = document.getElementById("cropW");
+    const cropH = document.getElementById("cropH");
+
+    const gray = document.getElementById("gray");
+    const sepia = document.getElementById("sepia");
+    const blur = document.getElementById("blur");
+    const bright = document.getElementById("bright");
+    const contrast = document.getElementById("contrast");
+
+    let img = null;
+
+    function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
+
+    imgFile.addEventListener("change", () => {
+      const f = imgFile.files?.[0];
+      if (!f) return;
+
+      const url = URL.createObjectURL(f);
+      const im = new Image();
+      im.onload = () => {
+        URL.revokeObjectURL(url);
+        img = im;
+
+        cropX.max = Math.max(0, img.width - 1);
+        cropY.max = Math.max(0, img.height - 1);
+        cropW.max = img.width;
+        cropH.max = img.height;
+
+        cropX.value = 0;
+        cropY.value = 0;
+        cropW.value = img.width;
+        cropH.value = img.height;
+
+        renderImg();
+      };
+      im.src = url;
+    });
+
+    function getFilter(){
+      const parts = [];
+      if (gray.checked) parts.push("grayscale(1)");
+      if (sepia.checked) parts.push("sepia(1)");
+      parts.push(`blur(${Number(blur.value)}px)`);
+      parts.push(`brightness(${Number(bright.value)}%)`);
+      parts.push(`contrast(${Number(contrast.value)}%)`);
+      return parts.join(" ");
+    }
+
+    function renderImg(){
+      ictx.clearRect(0,0,imgCanvas.width,imgCanvas.height);
+      ictx.fillStyle = "#f6f6f6";
+      ictx.fillRect(0,0,imgCanvas.width,imgCanvas.height);
+
+      if (!img) {
+        ictx.fillStyle = "#666";
+        ictx.font = "14px system-ui";
+        ictx.fillText("Загрузите изображение", 12, 24);
+        return;
+      }
+
+      const sx = clamp(Number(cropX.value), 0, img.width-1);
+      const sy = clamp(Number(cropY.value), 0, img.height-1);
+      const sw = clamp(Number(cropW.value), 1, img.width - sx);
+      const sh = clamp(Number(cropH.value), 1, img.height - sy);
+
+      cropW.value = sw;
+      cropH.value = sh;
+
+      const sc = Number(scale.value) / 100;
+      const dw = Math.floor(sw * sc);
+      const dh = Math.floor(sh * sc);
+
+      const pad = 12;
+      const maxW = imgCanvas.width - pad*2;
+      const maxH = imgCanvas.height - pad*2;
+      let drawW = dw, drawH = dh;
+
+      if (drawW > maxW) { const k = maxW / drawW; drawW = Math.floor(drawW*k); drawH = Math.floor(drawH*k); }
+      if (drawH > maxH) { const k = maxH / drawH; drawW = Math.floor(drawW*k); drawH = Math.floor(drawH*k); }
+
+      const dx = Math.floor((imgCanvas.width - drawW)/2);
+      const dy = Math.floor((imgCanvas.height - drawH)/2);
+
+      ictx.save();
+      ictx.filter = getFilter();
+      ictx.drawImage(img, sx, sy, sw, sh, dx, dy, drawW, drawH);
+      ictx.restore();
+    }
+
+    [scale,cropX,cropY,cropW,cropH,gray,sepia,blur,bright,contrast].forEach(el=>{
+      el.addEventListener("input", renderImg);
+      el.addEventListener("change", renderImg);
+    });
+
+    function resetImg(){
+      if (!img) return;
+      scale.value = 100;
+      gray.checked = false;
+      sepia.checked = false;
+      blur.value = 0;
+      bright.value = 100;
+      contrast.value = 100;
+      cropX.value = 0;
+      cropY.value = 0;
+      cropW.value = img.width;
+      cropH.value = img.height;
+      renderImg();
+    }
+
+    function downloadPng(){
+      const a = document.createElement("a");
+      a.download = "result.png";
+      a.href = imgCanvas.toDataURL("image/png");
+      a.click();
+    }
+
+    renderImg();
+  </script>
+</body>
+</html>
