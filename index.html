@@ -59,11 +59,11 @@
       <label>Размер <input type="range" id="radius" min="6" max="60" step="1" value="18" /></label>
     </div>
     <canvas id="animCanvas" width="900" height="260"></canvas>
-    <div class="muted">Анимация идёт через requestAnimationFrame; ползунки меняют параметры в реальном времени.</div>
+    <div class="muted">Анимация через requestAnimationFrame; ползунки меняют параметры в реальном времени.</div>
   </div>
 
   <div class="box">
-    <h4 style="margin:0 0 8px">4) Работа с изображениями (upload + resize/crop + фильтры + скачать)</h4>
+    <h4 style="margin:0 0 8px">4) Изображения (upload + crop/scale + фильтры + скачать)</h4>
     <div class="row">
       <input type="file" id="imgFile" accept="image/*" />
       <button onclick="resetImg()">Reset</button>
@@ -72,8 +72,6 @@
 
     <div class="row">
       <label>Scale % <input type="range" id="scale" min="10" max="200" step="1" value="100" /></label>
-      <label>Crop X <input type="range" id="cropX" min="0" max="0" step="1" value="0" /></label>
-      <label>Crop Y <input type="range" id="cropY" min="0" max="0" step="1" value="0" /></label>
       <label>Crop W <input type="range" id="cropW" min="10" max="10" step="1" value="10" /></label>
       <label>Crop H <input type="range" id="cropH" min="10" max="10" step="1" value="10" /></label>
     </div>
@@ -87,7 +85,7 @@
     </div>
 
     <canvas id="imgCanvas" width="900" height="420"></canvas>
-    <div class="muted">Загрузи картинку → регулируй crop/scale/фильтры → скачай результат.</div>
+    <div class="muted">Загрузи картинку → регулируй crop W/H (по центру) + scale/фильтры → скачай результат.</div>
   </div>
 
   <script>
@@ -110,7 +108,7 @@
 
     audioFile.addEventListener("change", () => {
       if (aUrl) URL.revokeObjectURL(aUrl);
-      const f = audioFile.files?.[0];
+      const f = audioFile.files && audioFile.files[0];
       if (!f) return;
       aUrl = URL.createObjectURL(f);
       audio.src = aUrl;
@@ -119,7 +117,7 @@
 
     videoFile.addEventListener("change", () => {
       if (vUrl) URL.revokeObjectURL(vUrl);
-      const f = videoFile.files?.[0];
+      const f = videoFile.files && videoFile.files[0];
       if (!f) return;
       vUrl = URL.createObjectURL(f);
       video.src = vUrl;
@@ -130,7 +128,7 @@
       if (!isFinite(t)) return "0:00";
       const m = Math.floor(t/60);
       const s = Math.floor(t%60);
-      return `${m}:${String(s).padStart(2,"0")}`;
+      return m + ":" + String(s).padStart(2,"0");
     }
 
     aVol.addEventListener("input", () => audio.volume = Number(aVol.value));
@@ -141,7 +139,7 @@
       const d = media.duration || 0;
       const t = media.currentTime || 0;
       if (d > 0) slider.value = (t/d) * 100;
-      label.textContent = `${fmt(t)} / ${fmt(d)}`;
+      label.textContent = fmt(t) + " / " + fmt(d);
     }
 
     audio.addEventListener("timeupdate", () => syncSeek(audio, aSeek, aTime));
@@ -203,14 +201,12 @@
       if (y + r > animCanvas.height) { y = animCanvas.height - r; vy *= -1; }
 
       actx.clearRect(0,0,animCanvas.width,animCanvas.height);
+      actx.fillStyle = "#000";
       actx.fillRect(0,0,animCanvas.width,animCanvas.height);
 
-      actx.save();
-      actx.globalCompositeOperation = "source-over";
       actx.fillStyle = "#fff";
       actx.font = "14px system-ui";
       actx.fillText("Canvas animation (requestAnimationFrame)", 10, 20);
-      actx.restore();
 
       actx.beginPath();
       actx.arc(x,y,r,0,Math.PI*2);
@@ -226,8 +222,6 @@
     const ictx = imgCanvas.getContext("2d");
 
     const scale = document.getElementById("scale");
-    const cropX = document.getElementById("cropX");
-    const cropY = document.getElementById("cropY");
     const cropW = document.getElementById("cropW");
     const cropH = document.getElementById("cropH");
 
@@ -242,7 +236,7 @@
     function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
 
     imgFile.addEventListener("change", () => {
-      const f = imgFile.files?.[0];
+      const f = imgFile.files && imgFile.files[0];
       if (!f) return;
 
       const url = URL.createObjectURL(f);
@@ -251,13 +245,8 @@
         URL.revokeObjectURL(url);
         img = im;
 
-        cropX.max = Math.max(0, img.width - 1);
-        cropY.max = Math.max(0, img.height - 1);
         cropW.max = img.width;
         cropH.max = img.height;
-
-        cropX.value = 0;
-        cropY.value = 0;
         cropW.value = img.width;
         cropH.value = img.height;
 
@@ -270,9 +259,9 @@
       const parts = [];
       if (gray.checked) parts.push("grayscale(1)");
       if (sepia.checked) parts.push("sepia(1)");
-      parts.push(`blur(${Number(blur.value)}px)`);
-      parts.push(`brightness(${Number(bright.value)}%)`);
-      parts.push(`contrast(${Number(contrast.value)}%)`);
+      parts.push("blur(" + Number(blur.value) + "px)");
+      parts.push("brightness(" + Number(bright.value) + "%)");
+      parts.push("contrast(" + Number(contrast.value) + "%)");
       return parts.join(" ");
     }
 
@@ -288,23 +277,23 @@
         return;
       }
 
-      const sx = clamp(Number(cropX.value), 0, img.width-1);
-      const sy = clamp(Number(cropY.value), 0, img.height-1);
-      const sw = clamp(Number(cropW.value), 1, img.width - sx);
-      const sh = clamp(Number(cropH.value), 1, img.height - sy);
-
+      const sw = clamp(Number(cropW.value), 1, img.width);
+      const sh = clamp(Number(cropH.value), 1, img.height);
       cropW.value = sw;
       cropH.value = sh;
 
+      const sx = Math.floor((img.width - sw) / 2);
+      const sy = Math.floor((img.height - sh) / 2);
+
       const sc = Number(scale.value) / 100;
-      const dw = Math.floor(sw * sc);
-      const dh = Math.floor(sh * sc);
+      const dw0 = Math.floor(sw * sc);
+      const dh0 = Math.floor(sh * sc);
 
       const pad = 12;
       const maxW = imgCanvas.width - pad*2;
       const maxH = imgCanvas.height - pad*2;
-      let drawW = dw, drawH = dh;
 
+      let drawW = dw0, drawH = dh0;
       if (drawW > maxW) { const k = maxW / drawW; drawW = Math.floor(drawW*k); drawH = Math.floor(drawH*k); }
       if (drawH > maxH) { const k = maxH / drawH; drawW = Math.floor(drawW*k); drawH = Math.floor(drawH*k); }
 
@@ -317,7 +306,7 @@
       ictx.restore();
     }
 
-    [scale,cropX,cropY,cropW,cropH,gray,sepia,blur,bright,contrast].forEach(el=>{
+    [scale,cropW,cropH,gray,sepia,blur,bright,contrast].forEach(el=>{
       el.addEventListener("input", renderImg);
       el.addEventListener("change", renderImg);
     });
@@ -330,8 +319,6 @@
       blur.value = 0;
       bright.value = 100;
       contrast.value = 100;
-      cropX.value = 0;
-      cropY.value = 0;
       cropW.value = img.width;
       cropH.value = img.height;
       renderImg();
